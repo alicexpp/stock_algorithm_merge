@@ -1,0 +1,66 @@
+#coding=utf-8
+#推荐给第一个库区
+move_01
+  foreach
+    coil_area.coil_information($steel_kind,$coil_kind,$size,$next_unit)
+    coil_area.coil_area_ruler($coil_kind,$p0,$p1,$status)
+    check $status==1
+  assert
+    coil_area.move_area($coil_kind,$p1,$status)
+
+
+#推荐给第二个库区
+move_02
+  foreach
+    coil_area.coil_information($steel_kind,$coil_kind,$size,$next_unit)
+    coil_area.coil_area_ruler($coil_kind,$p1,$p2,$status)
+    check $status==2
+  assert
+    coil_area.move_area($coil_kind,$p2,$status)
+
+#推荐给第三个库区
+move_03
+  foreach
+    coil_area.coil_information($steel_kind,$coil_kind,$size,$next_unit)
+    coil_area.coil_area_ruler($coil_kind,$p2,$p3,$status)
+    check $status==3
+  assert
+    coil_area.move_area($coil_kind,$p3,$status)
+
+#推荐给第四个库区
+move_04
+  foreach
+    coil_area.coil_information($steel_kind,$coil_kind,$size,$next_unit)
+    coil_area.coil_area_ruler($coil_kind,$p3,$p4,$status)
+    check $status==4
+  assert
+    coil_area.move_area($coil_kind,$p4,$status)
+
+#推荐给第5个库区
+move_05
+  foreach
+    coil_area.coil_information($steel_kind,$coil_kind,$size,$next_unit)
+    coil_area.coil_area_ruler($coil_kind,$p4,$p5,$status)
+    check $status==5
+  assert
+    coil_area.move_area($coil_kind,$p5,$status)
+
+#推荐给第6个库区
+move_06
+  foreach
+    coil_area.coil_information($steel_kind,$coil_kind,$size,$next_unit)
+    coil_area.coil_area_ruler($coil_kind,$p5,$p6,$status)
+    check $status==6
+  assert
+    coil_area.move_area($coil_kind,$p6,$status)
+
+#推荐给第7个库区
+move_07
+  foreach
+    coil_area.coil_information($steel_kind,$coil_kind,$size,$next_unit)
+    coil_area.coil_area_ruler($coil_kind,$p6,$p7,$status)
+    check $status==7
+  assert
+    coil_area.move_area($coil_kind,$p7,$status)
+
+
