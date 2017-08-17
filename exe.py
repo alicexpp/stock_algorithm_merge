@@ -30,7 +30,7 @@ for i in range(1,20):
                                                       Max_Length, Max_Width, area_name, Current_Capacity)
     driver.update_area_ratio('UACS_STOCK_INFO',area_name, new_storage_capacity)
     print "放置之后：",new_storage_capacity
-    print "the coil should put in %s area"% area_name
+    print "the coil should put in %s area!"% area_name
 
 
 

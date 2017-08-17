@@ -1,6 +1,7 @@
 #  coding=utf-8
+#   根据长方形的4个顶点画长方形
+import pylab
 
-MAXVALUE = float("inf")
 
 
 #  定义了点和长方形两个类
@@ -48,11 +49,29 @@ class RECT:
         self.lower_right = self.get_lower_right_point()
         self.center = self.get_center()
 
+#   绘制矩形的四个点
+def paint(rectangle, color='b', ratio=0.):
+    rect_x = [rectangle.top_left.x, rectangle.top_right.x,
+              rectangle.lower_right.x, rectangle.lower_left.x, rectangle.top_left.x]
 
-class AREA:
-    def __init__(self,area_name='',steel_list = None):
-        if steel_list is None:
-            steel_list = list()
-        self.area_name = area_name
-        self.steel_list = steel_list
+    rect_y = [rectangle.top_left.y, rectangle.top_right.y,
+              rectangle.lower_right.y, rectangle.lower_left.y, rectangle.top_left.y]
 
+    pylab.plot(rect_x, rect_y, color)
+    if color == 'r':
+        pylab.text(rectangle.center.x, rectangle.center.y, ratio)
+
+
+def show_all_rect(area_name, max_length, max_width):
+    pylab.title(area_name)
+    pylab.xlabel('x_diameter')
+    pylab.ylabel('y_width')
+    pylab.xlim(0, max_length)
+    pylab.ylim(0, max_width)
+    pylab.legend()
+    pylab.show()
+
+if __name__ =="__main__":
+    new_rect= RECT(llp=POINT(2,4),length=4, width=6)
+    paint(new_rect,color='b',ratio=1)
+    show_all_rect("test",20,20)

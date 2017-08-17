@@ -12,6 +12,7 @@ import datetime
 import time
 import recommend_area
 import BaseClass
+import random
 
 Area_information = {'A1C': BaseClass.AREA(), 'A2C': BaseClass.AREA(), 'A3C': BaseClass.AREA(), 'A4C': BaseClass.AREA(),
                     'A5C': BaseClass.AREA(), 'A6C': BaseClass.AREA(), 'A7C': BaseClass.AREA(), 'A1S': BaseClass.AREA(),
@@ -138,8 +139,8 @@ def recommend_stock_position(table_name, coil_information, external_diameter, wi
     steel_information = BaseClass.RECT(llp=BaseClass.POINT(0., 0.), length=float(external_diameter),
                                        width=float(width))
     # 获取当前区域的steel_list，每个区域的steel_list不同
+    # 在该处应该先读取数据库中鞍座的占有情况，将其append到new_steel_list中去
     new_steel_list = Area_information.get(area_name).steel_list
-    print new_steel_list
     new_storage_capacity = recommend_area.find_suit_pos(steel_information, new_steel_list,
                                                         Max_Length, Max_Width, area_name, Current_Capacity)
     update_area_ratio('UACS_STOCK_INFO', area_name, new_storage_capacity)
@@ -148,7 +149,11 @@ def recommend_stock_position(table_name, coil_information, external_diameter, wi
 
 if __name__ == "__main__":
     while True:
-        external_diameter =raw_input("请输入钢卷外径：")
-        width = raw_input("请输入钢卷宽度：")
+        # external_diameter =raw_input("请输入钢卷外径：")
+        external_diameter=random.randint(1000, 1200)
+        print "请输入钢卷外径:",external_diameter
+        # width = raw_input("请输入钢卷宽度：")
+        width = random.randint(1300, 2000)
+        print "请输入钢卷宽度：",width
         recommend_stock_position('UACS_STOCK_INFO', 'back_closed_coil', float(external_diameter),float(width))
         print 'successful'
