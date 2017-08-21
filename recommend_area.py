@@ -6,6 +6,9 @@ import BaseClass
 import random
 from area_coordinate_trans import *
 from pylab import  mpl
+from time import  sleep
+import threading
+from threading import Thread
 mpl.rcParams['font.sans-serif'] = ['SimHei']
 # 库区最大长度
 Stock_Max_Length = 12000
@@ -71,6 +74,15 @@ def find_max_ratio(ratio_rect_list, max_length, max_width, area_name):
         return max_ratio,max_ratio_rect
 
 
+#  返回推荐位置中心的X坐标
+def output_coordinate_x(recommend_rect):
+  return recommend_rect.center.x
+
+
+#  返回推荐位置中心的Y坐标
+def output_coordinate_y(recommend_rect):
+    return recommend_rect.center.y
+
 
 # 找到合适的摆放位置，rect是新输入的矩形，rect_list是之前所有的矩形
 def find_suit_pos(rect, rect_list,max_length,max_width, area_name, current_capacity):
@@ -94,12 +106,11 @@ def find_suit_pos(rect, rect_list,max_length,max_width, area_name, current_capac
         paint(rect, color='b', ratio=1.0)
         pylab.text(rect.center.x, rect.center.y, ratio)
         show_all_rect(area_name, max_length, max_width)
-        return storage_capacity
+        return storage_capacity,rect
     # 输入的长方形中右上角最大的x坐标和y坐标
     max_right = max(rect_x_list)
     max_top = max(rect_y_list)
     i = 0.
-
     while i <= max_top:  # width direction
         if rect.lower_left.x == max_right and  rect.lower_left.y == max_top:
             break
@@ -177,7 +188,7 @@ def find_suit_pos(rect, rect_list,max_length,max_width, area_name, current_capac
     paint_exit_rect(rect_list)
     pylab.text(max_ratio_rect.center.x, max_ratio_rect.center.y, max_ratio)
     show_all_rect(area_name, max_length, max_width)
-    return storage_capacity
+    return storage_capacity,max_ratio_rect
 
 
 # 绘制之前所有的矩形
@@ -186,17 +197,15 @@ def paint_exit_rect(rect_list):
         paint(item)
 
 
-# 显示矩形
+#  显示之前所有的矩形
 def show_all_rect(area_name, max_length, max_width):
     pylab.title(area_name)
     pylab.xlabel('x_diameter')
     pylab.ylabel('y_width')
     pylab.xlim(0, max_length)
     pylab.ylim(0, max_width)
-
     pylab.legend()
     pylab.show()
-
 
 
 # 绘制矩形的四个点
@@ -236,17 +245,19 @@ if __name__ == "__main__":
 
         suit_pos_dict = dict()
         steel_list = list()
-        while True:
 
+        while True:
             # external_diameter= random.randint(10, 20) * 100
             # print "钢卷外径：", external_diameter
             # width = random.randint(13, 17) * 100
             # print "钢卷宽度：",width
             external_diameter=raw_input("请输入钢卷外径：")
             width=raw_input("请输入钢卷宽度：")
-
             steel_information=BaseClass.RECT(llp=BaseClass.POINT(0.,0.),length=float(external_diameter),
-                                             width=float(width))
-            find_suit_pos(steel_information,steel_list,12000,10000,"A2C",0.2)
+                                         width=float(width))
+            result=find_suit_pos(steel_information,steel_list,12000,10000,"A2C",0.2)
+            print result[0]
+            print result[1]
 
-            
+
+
