@@ -5,11 +5,7 @@ import copy
 import BaseClass
 import random
 from area_coordinate_trans import *
-from pylab import  mpl
-from time import  sleep
-import threading
-from threading import Thread
-mpl.rcParams['font.sans-serif'] = ['SimHei']
+
 # 库区最大长度
 Stock_Max_Length = 12000
 # 库区最大宽度
@@ -58,7 +54,7 @@ def find_max_ratio(ratio_rect_list, max_length, max_width, area_name):
     # print "ratio_rect_list=",ratio_rect_list
     #  将用利用率和长方形作为列表元组元素的列表按照ratio从大到小的顺序排列
     ratio_rect_list.sort(reverse=True)
-   # print "ratio_rect_list_sorted",ratio_rect_list
+    #print "ratio_rect_list_sorted",ratio_rect_list
     index= 0
     while index <= len(ratio_rect_list):
         max_ratio=ratio_rect_list[index][0]
@@ -112,13 +108,14 @@ def find_suit_pos(rect, rect_list,max_length,max_width, area_name, current_capac
     max_top = max(rect_y_list)
     i = 0.
     while i <= max_top:  # width direction
-        if rect.lower_left.x == max_right and  rect.lower_left.y == max_top:
+        if rect.lower_left.x == max_right and rect.lower_left.y == max_top:
             break
         temp_rect_list = copy.deepcopy(rect_list)
         j = 0.
-        if max_top > Stock_Max_Width:
-            i=0
-            j = min(rect_x_list)
+        # if max_top > Stock_Max_Width:
+        #     i = 0
+        #     j = min(rect_x_list)
+
 
         while j <= max_right:  # length direction
             cross_flag, cross_rect = cross_rect_list(rect, temp_rect_list)
@@ -158,7 +155,7 @@ def find_suit_pos(rect, rect_list,max_length,max_width, area_name, current_capac
                         rect.lower_left.x=0.0
                         rect.lower_left.y=min_y
                     else:
-                    # 将比较的矩形中的最小x坐标赋给新长方形左下角x
+                        # 将比较的矩形中的最小x坐标赋给新长方形左下角x
                         rect.lower_left.x = min_x
                     # 将比较的矩形中的最小y坐标赋给新长方形的左下角y
                         rect.lower_left.y = min_y
@@ -180,9 +177,9 @@ def find_suit_pos(rect, rect_list,max_length,max_width, area_name, current_capac
     max_ratio_rect = find_max_ratio(new_ratio_rect_list, max_length, max_width, area_name)[1]
     recommend_x_coordinate=max_ratio_rect.center.x
     recommend_y_coordinate=max_ratio_rect.center.y
-    print "推荐库位在 %s 中的中心点坐标为：(%.2f,%.2f)" % (area_name, max_ratio_rect.center.x, max_ratio_rect.center.y)
+    print "the center position in  %s recommend area is: (%.2f,%.2f)" % (area_name, max_ratio_rect.center.x, max_ratio_rect.center.y)
     coordinate_in_area = relative__to_absolute(area_name, recommend_x_coordinate, recommend_y_coordinate)
-    print "推荐库位在整个库区中的中心点坐标为：", coordinate_in_area
+    print "position in all area is:", coordinate_in_area
     rect_list.append(max_ratio_rect)
     # 绘制所有矩形
     paint_exit_rect(rect_list)
@@ -228,8 +225,8 @@ def cal_ratio(input_rect, rects):
     ratio = sum([item.area for item in new_rect_list]) / (
         max([item.top_right.x for item in new_rect_list]) *
         max([item.top_right.y for item in new_rect_list]))
-    # 四舍五入取8位利用率
-    ratio = round(ratio, 8)
+    # 四舍五入取3位利用率
+    ratio = round(ratio, 3)
     return ratio
 
 
