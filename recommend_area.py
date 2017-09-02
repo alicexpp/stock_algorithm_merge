@@ -22,9 +22,9 @@ def rectangles_cross(rect, other_rect):
     # 两个矩形的重心的Y坐标的差值的两倍
     y_focus_distance = abs(rect.center.y - other_rect.center.y) * 2.0
     # 两个矩形边长的和
-    sum_x = rect.length + other_rect.length
+    sum_x = rect.width + other_rect.width
     # 两个矩形宽度的和
-    sum_y = rect.width + other_rect.width
+    sum_y = rect.length + other_rect.length
     # 两个矩形相交
     if x_focus_distance - sum_x < 0 and y_focus_distance - sum_y < 0:
         return True
@@ -115,8 +115,6 @@ def find_suit_pos(rect, rect_list,max_length,max_width, area_name, current_capac
         # if max_top > Stock_Max_Width:
         #     i = 0
         #     j = min(rect_x_list)
-
-
         while j <= max_right:  # length direction
             cross_flag, cross_rect = cross_rect_list(rect, temp_rect_list)
             # 有矩形相交
@@ -139,17 +137,18 @@ def find_suit_pos(rect, rect_list,max_length,max_width, area_name, current_capac
                 # 利用率和rect保存在元组中
                 new_ratio_rect_tuple = (ratio, copy_rect)
                 new_ratio_rect_list.append(new_ratio_rect_tuple)
-                # # 绘制之前的矩形
-                # paint_exit_rect(rect_list)
-                # # 绘制新输入的矩形
-                # paint(rect, color='r', ratio=ratio)
-                # # 显示矩形
-                # show_all_rect(area_name,max_length, max_width)
+                # 绘制之前的矩形
+                paint_exit_rect(rect_list)
+                # 绘制新输入的矩形
+                paint(rect, color='r', ratio=ratio)
+                # 显示矩形
+                show_all_rect(area_name,max_length, max_width)
                 # print "before", rect.lower_left.x, rect.lower_left.y
                 min_x = min(rect_x_list)
                 min_y = min(rect_y_list)
                 i = min_y
                 # width方向上的移动比较
+                # 100 mm表示钢卷与钢卷之间的间隔距离
                 if j < max_right:
                     if rect.lower_right.x>max_right and rect.lower_left.x!=0.0:
                         rect.lower_left.x=0.0
@@ -244,15 +243,15 @@ if __name__ == "__main__":
         steel_list = list()
 
         while True:
-            # external_diameter= random.randint(10, 20) * 100
-            # print "钢卷外径：", external_diameter
-            # width = random.randint(13, 17) * 100
-            # print "钢卷宽度：",width
-            external_diameter=raw_input("请输入钢卷外径：")
-            width=raw_input("请输入钢卷宽度：")
+            external_diameter= random.randint(10, 20) * 100
+            print "钢卷外径：", external_diameter
+            width = random.randint(13, 17) * 100
+            print "钢卷宽度：",width
+            # external_diameter=raw_input("请输入钢卷外径：")
+            # width=raw_input("请输入钢卷宽度：")
             steel_information=BaseClass.RECT(llp=BaseClass.POINT(0.,0.),length=float(external_diameter),
                                          width=float(width))
-            result=find_suit_pos(steel_information,steel_list,12000,10000,"A2C",0.2)
+            result=find_suit_pos(steel_information,steel_list,6000,6000,"A2C",0.2)
             print result[0]
             print result[1]
 

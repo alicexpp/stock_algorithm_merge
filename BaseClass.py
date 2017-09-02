@@ -26,19 +26,19 @@ class RECT:
 
     # 左上角坐标
     def get_top_left_point(self):
-        return POINT(self.lower_left.x, self.lower_left.y + self.width)
+        return POINT(self.lower_left.x, self.lower_left.y + self.length)
 
     # 右上角
     def get_top_right_point(self):
-        return POINT(self.lower_left.x + self.length, self.lower_left.y + self.width)
+        return POINT(self.lower_left.x + self.width, self.lower_left.y + self.length)
 
     # 右下角
     def get_lower_right_point(self):
-        return POINT(self.lower_left.x + self.length, self.lower_left.y)
+        return POINT(self.lower_left.x + self.width, self.lower_left.y)
 
     # 中心坐标
     def get_center(self):
-        return POINT(self.lower_left.x + self.length / 2.0, self.lower_left.y + self.width / 2.0)
+        return POINT(self.lower_left.x + self.width / 2.0, self.lower_left.y + self.length / 2.0)
 
 
     # 坐标改变后的矩形

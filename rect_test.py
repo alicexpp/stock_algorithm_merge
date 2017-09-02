@@ -78,7 +78,7 @@ def show_all_rect(area_name, max_length, max_width):
 
 
 if __name__ =="__main__":
-    new_rect= RECT(center=POINT(2,4),length=4, width=6)
+    new_rect= RECT(center=POINT(),length=4, width=6)
     print new_rect.lower_left.x,new_rect.lower_left.y
     paint(new_rect)
     show_all_rect("test", 10, 10)
