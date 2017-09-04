@@ -6,10 +6,20 @@ import BaseClass
 import random
 from area_coordinate_trans import *
 
+import ibm_db_dbi
+import area_coordinate_trans
+#连接数据库
+dsn = "DRIVER={IBM DB2 ODBC DRIVER};DATABASE=UACSDB0;" \
+      "HOSTNAME=10.25.101.8;PORT=50000;PROTOCOL=TCPIP;UID=UACSAPP;PWD=UACSAPP;"
+conn = ibm_db_dbi.connect(dsn, "", "")
+if conn:
+    print "connect db2 successed"
+
 # 库区最大长度
 Stock_Max_Length = 12000
 # 库区最大宽度
 Stock_Max_Width = 10000
+
 
 # 判断两个矩形相交的方法
 def rectangles_cross(rect, other_rect):
@@ -80,8 +90,49 @@ def output_coordinate_y(recommend_rect):
     return recommend_rect.center.y
 
 
+# 求取推荐位置的中心坐标并保存至列表中，recommend_rect_list中保存的是推荐的钢卷摆放的位置，即rect
+def recommend_position_data(recommend_rect):
+    x_center = recommend_rect.center.x
+    y_center = recommend_rect.center.y
+    # 将计算出的钢卷摆放位置坐标存储在元组中
+    position_center_coordinate = (x_center,y_center)
+    # # 将其计算出的中心坐标全都保存至列表中便于遍历
+    # recommend_position_list.append(position_coordinate)
+    return position_center_coordinate
+
+
+# 在库图数据库中寻找合适的鞍座，向外延伸查询，并寻找与其挨着最近的鞍座,recommend_position_list保存的是推荐的摆放
+# 位置的中心点坐标，即rect.center.x和rect.center.y
+def select_saddle_date(table_name,recommend_rect_center,area_name):
+    conn.set_autocommit(True)
+    cursor=conn.cursor()
+    x_center = recommend_rect_center[0]
+    y_center = recommend_rect_center[1]
+    sql="SELECT MIN(X_CENTER),MIN(Y_CENTER) FROM %s WHERE Y_CENTER=(SELECT MIN(Y_CENTER) FROM %s WHERE" \
+        " Y_CENTER >= %d AND HAS_COIL = 0 AND AREA_NAME='%s') AND X_CENTER >= %d AND HAS_COIL = 0 AND AREA_NAME = '%s' " \
+        ""%(table_name,table_name,y_center,area_name,x_center,area_name)
+    stmt= cursor.execute(sql)
+    select_saddle_center= cursor.fetchall()
+    cursor.close()
+    return select_saddle_center
+
+
+# 更新库图中是否有钢卷的状态位
+def update_has_coil(table_name, x_center, y_center):
+    conn.set_autocommit(True)
+    cursor = conn.cursor()
+    update_sql="UPDATE %s SET HAS_COIL='%s' WHERE X_CENTER = %d AND Y_CENTER = %d"%(table_name,'1',x_center,y_center)
+    stmt = cursor.execute(update_sql)
+    cursor.close()
+
+
 # 找到合适的摆放位置，rect是新输入的矩形，rect_list是之前所有的矩形
 def find_suit_pos(rect, rect_list,max_length,max_width, area_name, current_capacity):
+    select_saddle=[]
+    width = rect.width
+    external_diameter = rect.length
+    rect_x_start = rect.lower_left.x
+    rect_y_start = rect.lower_left.y
     new_ratio_rect_tuple = ()
     new_ratio_rect_list = []
     # 取之前的每个长方形的右上角的坐标（x,y）
@@ -89,25 +140,41 @@ def find_suit_pos(rect, rect_list,max_length,max_width, area_name, current_capac
     rect_y_list = [ele.top_right.y for ele in rect_list]
     # 如果当前只有一个长方形
     if not rect_x_list or not rect_y_list:
-        rect_list.append(rect)
-        # print "rect_list:", rect_list
+        rect_center_x = rect.center.x
+        rect_center_y = rect.center.y
+        # 需要将其x,y坐标转换为大区域的坐标，再去选鞍座号，相对坐标转换成大区绝对坐标
+        CENTER_X = area_coordinate_trans.relative__to_absolute(area_name, rect_center_x, rect_center_y)[0]
+        CENTER_Y = area_coordinate_trans.relative__to_absolute(area_name, rect_center_x, rect_center_y)[1]
+        print "CENTER_X:", CENTER_X
+        print "CENTER_Y:", CENTER_Y
+        rect_center = (CENTER_X, CENTER_Y)
+        select_saddle = select_saddle_date("UACS_SADDLE_TEST", rect_center, area_name)
+        print "最终选择的小区的坐标为：",rect_center
+        print "最终选择的鞍座坐标为：", select_saddle
+        select_saddle_x = select_saddle[0][0]
+        select_saddle_y = select_saddle[0][1]
+        new_saddle_rect = BaseClass.RECT(llp=BaseClass.POINT(select_saddle_x-float(width) / 2,
+                                                             select_saddle_y-float(external_diameter) / 2),
+                                         length=float(external_diameter), width=float(width))
         storage_capacity = current_capacity + (rect.length * rect.width)/ ((max_length)*(max_width))
         ratio = 1.0
-        recommend_x_coordinate = rect.center.x
-        recommend_y_coordinate = rect.center.y
-        print "推荐库位在 %s 中的中心点坐标为：(%.2f,%.2f)" % (area_name, recommend_x_coordinate,
-                                                                recommend_y_coordinate)
-        coordinate_in_area = relative__to_absolute(area_name, recommend_x_coordinate, recommend_y_coordinate)
-        print "推荐库位在整个库区中的中心点坐标为：", coordinate_in_area
-        paint(rect, color='b', ratio=1.0)
-        pylab.text(rect.center.x, rect.center.y, ratio)
+        # 将以库图中的鞍座坐标为中心点，转换成小区域的中心点，以便绘制rect
+        new_recommend_area_x = area_coordinate_trans.absolute_to_relative(area_name, select_saddle_x,select_saddle_y)[0]
+        new_recommend_area_y = area_coordinate_trans.absolute_to_relative(area_name, select_saddle_x,select_saddle_y)[1]
+        new_recommend_rect = BaseClass.RECT(llp=BaseClass.POINT(new_recommend_area_x-float(width) / 2,
+                                                             new_recommend_area_y-float(external_diameter) / 2),
+                                         length=float(external_diameter), width=float(width))
+        rect_list.append(new_recommend_rect)
+        update_has_coil('UACS_SADDLE_TEST', new_saddle_rect.center.x, new_saddle_rect.center.y)
+        paint(new_recommend_rect, color='b', ratio=1.0)
+        pylab.text(new_recommend_rect.center.x, new_recommend_rect.center.y, ratio)
         show_all_rect(area_name, max_length, max_width)
-        return storage_capacity,rect
+        return storage_capacity, new_saddle_rect
     # 输入的长方形中右上角最大的x坐标和y坐标
     max_right = max(rect_x_list)
     max_top = max(rect_y_list)
     i = 0.
-    while i <= max_top:  # width direction
+    while i <= max_top and select_saddle!=[(None,None)]:  # width direction
         if rect.lower_left.x == max_right and rect.lower_left.y == max_top:
             break
         temp_rect_list = copy.deepcopy(rect_list)
@@ -115,7 +182,7 @@ def find_suit_pos(rect, rect_list,max_length,max_width, area_name, current_capac
         # if max_top > Stock_Max_Width:
         #     i = 0
         #     j = min(rect_x_list)
-        while j <= max_right:  # length direction
+        while j <= max_right and select_saddle!=[(None,None)]:  # length direction
             cross_flag, cross_rect = cross_rect_list(rect, temp_rect_list)
             # 有矩形相交
             if not cross_flag:
@@ -130,62 +197,95 @@ def find_suit_pos(rect, rect_list,max_length,max_width, area_name, current_capac
                 continue
             # 不相交
             else:
-                # 计算空间利用率
-                ratio=cal_ratio(rect, rect_list)
-                storage_capacity= cal_storage_capacity(rect, current_capacity, max_length, max_width )
                 copy_rect = copy.deepcopy(rect)
-                # 利用率和rect保存在元组中
-                new_ratio_rect_tuple = (ratio, copy_rect)
-                new_ratio_rect_list.append(new_ratio_rect_tuple)
-                # 绘制之前的矩形
-                paint_exit_rect(rect_list)
-                # 绘制新输入的矩形
-                paint(rect, color='r', ratio=ratio)
-                # 显示矩形
-                show_all_rect(area_name,max_length, max_width)
-                # print "before", rect.lower_left.x, rect.lower_left.y
-                min_x = min(rect_x_list)
-                min_y = min(rect_y_list)
-                i = min_y
-                # width方向上的移动比较
-                # 100 mm表示钢卷与钢卷之间的间隔距离
-                if j < max_right:
-                    if rect.lower_right.x>max_right and rect.lower_left.x!=0.0:
-                        rect.lower_left.x=0.0
-                        rect.lower_left.y=min_y
+                copy_rect_center_x = copy_rect.center.x
+                copy_rect_center_y = copy_rect.center.y
+                # 需要将其x,y坐标转换为大区域的坐标，再去选鞍座号，相对坐标转换成大区绝对坐标
+                CENTER_X = area_coordinate_trans.relative__to_absolute(area_name, copy_rect_center_x, copy_rect_center_y)[0]
+                CENTER_Y = area_coordinate_trans.relative__to_absolute(area_name, copy_rect_center_x, copy_rect_center_y)[1]
+                # 计算出来的大区中心点坐标
+                cal_recommend_rect_center = (CENTER_X, CENTER_Y)
+                # print "计算推荐摆放位置的中心坐标：", cal_recommend_rect_center
+                # 根据计算出的推荐位置的中心坐标选择合适的鞍座
+                select_saddle = select_saddle_date("UACS_SADDLE_TEST", cal_recommend_rect_center,area_name)
+                if select_saddle!=[(None,None)]:
+                    # print "选择的库图中的鞍座坐坐标为：", select_saddle
+                    select_saddle_x = select_saddle[0][0]
+                    select_saddle_y = select_saddle[0][1]
+                    # 将以库图中的鞍座坐标为中心点，转换成小区域的中心点，以便绘制rect
+                    new_recommend_area_x = \
+                    area_coordinate_trans.absolute_to_relative(area_name, select_saddle_x, select_saddle_y)[0]
+                    new_recommend_area_y = \
+                    area_coordinate_trans.absolute_to_relative(area_name, select_saddle_x, select_saddle_y)[1]
+                    # 小区域中的矩形
+                    new_recommend_rect = BaseClass.RECT(llp=BaseClass.POINT(new_recommend_area_x - float(width) / 2,
+                                                                            new_recommend_area_y - float(
+                                                                                external_diameter) / 2),
+                                                        length=float(external_diameter), width=float(width))
+                    # 计算以鞍座号摆放的位置的空间利用率
+                    ratio_saddle = cal_ratio(new_recommend_rect, rect_list)
+                    # 计算以鞍座号摆放的位置的库容率
+                    storage_capacity = cal_storage_capacity(new_recommend_rect, current_capacity, max_length, max_width)
+                    # 将新的位置和空间利用率保存在元组中
+                    ratio_saddle_rect_tuple = (ratio_saddle, new_recommend_rect)
+                    new_ratio_rect_list.append(ratio_saddle_rect_tuple)
+                    # # 绘制之前的矩形
+                    # paint_exit_rect(rect_list)
+                    # # 绘制新输入的矩形
+                    # paint(new_recommend_rect, color='r', ratio=ratio_saddle)
+                    # # 显示矩形
+                    # show_all_rect(area_name,max_length, max_width)
+                    min_x = min(rect_x_list)
+                    min_y = min(rect_y_list)
+                    i = min_y
+                    # width方向上的移动比较
+                    if j < max_right:
+                        if rect.lower_right.x>max_right and rect.lower_left.x!=rect_x_start:
+                            rect.lower_left.x= rect_x_start
+                            rect.lower_left.y= min_y
+                        else:
+                            # 将比较的矩形中的最小x坐标赋给新长方形左下角x
+                            rect.lower_left.x = min_x
+                        # 将比较的矩形中的最小y坐标赋给新长方形的左下角y
+                            rect.lower_left.y = min_y
+                        if len(rect_y_list) > 1:
+                            rect_y_list.remove(min_y)
+                        if len(rect_x_list) > 1:
+                            rect_x_list.remove(min_x)
                     else:
-                        # 将比较的矩形中的最小x坐标赋给新长方形左下角x
-                        rect.lower_left.x = min_x
-                    # 将比较的矩形中的最小y坐标赋给新长方形的左下角y
-                        rect.lower_left.y = min_y
-                    if len(rect_y_list) > 1:
-                        rect_y_list.remove(min_y)
-                    if len(rect_x_list) > 1:
-                        rect_x_list.remove(min_x)
-                else:
-                    rect.lower_left.x = 0.0
-                    rect.lower_left.y = i
-                    if len(rect_y_list) > 1:
-                        rect_y_list.remove(min_y)
-                    if len(rect_x_list) > 1:
-                        rect_x_list.remove(min_x)
-                rect.change_rect()
-                # print rect.lower_left.x , rect.lower_left.y
-                break
-    max_ratio = find_max_ratio(new_ratio_rect_list, max_length, max_width, area_name)[0]
-    max_ratio_rect = find_max_ratio(new_ratio_rect_list, max_length, max_width, area_name)[1]
-    recommend_x_coordinate=max_ratio_rect.center.x
-    recommend_y_coordinate=max_ratio_rect.center.y
-    print "the center position in  %s recommend area is: (%.2f,%.2f)" % (area_name, max_ratio_rect.center.x, max_ratio_rect.center.y)
-    coordinate_in_area = relative__to_absolute(area_name, recommend_x_coordinate, recommend_y_coordinate)
-    print "position in all area is:", coordinate_in_area
-    rect_list.append(max_ratio_rect)
-    # 绘制所有矩形
-    paint_exit_rect(rect_list)
-    pylab.text(max_ratio_rect.center.x, max_ratio_rect.center.y, max_ratio)
-    show_all_rect(area_name, max_length, max_width)
-    return storage_capacity,max_ratio_rect
+                        rect.lower_left.x = rect_x_start
+                        rect.lower_left.y = i
+                        if len(rect_y_list) > 1:
+                            rect_y_list.remove(min_y)
+                        if len(rect_x_list) > 1:
+                            rect_x_list.remove(min_x)
+                    rect.change_rect()
+                    # print rect.lower_left.x , rect.lower_left.y
+                    break
 
+    if select_saddle !=[(None, None)]:
+        max_ratio = find_max_ratio(new_ratio_rect_list, max_length, max_width, area_name)[0]
+        # 这是小区中的矩形和坐标
+        max_ratio_rect = find_max_ratio(new_ratio_rect_list, max_length, max_width, area_name)[1]
+        recommend_x_coordinate=max_ratio_rect.center.x
+        recommend_y_coordinate=max_ratio_rect.center.y
+        print "最终选择的小区的坐标为：%d,%d" % (max_ratio_rect.center.x, max_ratio_rect.center.y)
+        # 将小区中的矩形坐标转换成大区的鞍座坐标
+        saddle_x_center = area_coordinate_trans.relative__to_absolute(area_name, recommend_x_coordinate,recommend_y_coordinate)[0]
+        saddle_y_center = area_coordinate_trans.relative__to_absolute(area_name, recommend_x_coordinate, recommend_y_coordinate)[1]
+        print "最终选择的鞍座坐标为：%d,%d" % (saddle_x_center, saddle_y_center)
+        new_saddle_rect = BaseClass.RECT(llp=BaseClass.POINT(saddle_x_center - float(width) / 2,
+                                                             saddle_y_center - float(external_diameter) / 2),
+                                         length=float(external_diameter), width=float(width))
+        update_has_coil('UACS_SADDLE_TEST', saddle_x_center, saddle_y_center)
+        rect_list.append(max_ratio_rect)
+        # 绘制所有矩形
+        paint_exit_rect(rect_list)
+        pylab.text(max_ratio_rect.center.x, max_ratio_rect.center.y, max_ratio)
+        show_all_rect(area_name, max_length, max_width)
+        return storage_capacity,new_saddle_rect
+    else:
+        return False
 
 # 绘制之前所有的矩形
 def paint_exit_rect(rect_list):
@@ -243,17 +343,26 @@ if __name__ == "__main__":
         steel_list = list()
 
         while True:
-            external_diameter= random.randint(10, 20) * 100
+            width = random.randint(11, 15) * 100
+            print "钢卷宽度：", width
+            external_diameter= random.randint(7, 12) * 100
             print "钢卷外径：", external_diameter
-            width = random.randint(13, 17) * 100
-            print "钢卷宽度：",width
+            center_x = 1100
+            center_y = 1050
+            while float(width) / 2 > center_x:
+                center_x = center_x + 2200
+            while float(external_diameter) / 2 > center_y:
+                center_y = center_y + 600
+
             # external_diameter=raw_input("请输入钢卷外径：")
             # width=raw_input("请输入钢卷宽度：")
-            steel_information=BaseClass.RECT(llp=BaseClass.POINT(0.,0.),length=float(external_diameter),
-                                         width=float(width))
-            result=find_suit_pos(steel_information,steel_list,6000,6000,"A2C",0.2)
-            print result[0]
-            print result[1]
+            steel_information = BaseClass.RECT(
+                llp=BaseClass.POINT(center_x - float(width) / 2, center_y - float(external_diameter) / 2),
+                length=float(external_diameter),
+                width=float(width))
+
+            find_suit_pos(steel_information, steel_list, 22000, 30000, "A2C", 0.2)
+
 
 
 

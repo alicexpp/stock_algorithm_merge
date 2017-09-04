@@ -1,7 +1,7 @@
 # coding=utf-8
 #  该字典里存储每个库区的名字和库区相对偏移量
-Area_Coordinate={"A1C": (0,0), "A2C": (0,12000), "A3C": (8000, 0), "A4C": (8000, 15000), "A5C": (18000,0),
-                 "A6C": (18000, 15000), "A7C": (26000, 10000)}
+Area_Coordinate={"A1C": (0,0), "A2C": (0,14050), "A3C": (6600, 0), "A4C": (6600, 16000), "A5C": (15400,0),
+                 "A6C": (15400, 16000), "A7C": (28600, 0)}
 
 
 # 将小区域的相对坐标转换成大区域的绝对坐标
@@ -23,4 +23,4 @@ def absolute_to_relative(area_name, x_coordinate, y_coordinate):
 
 
 if __name__=="__main__":
-    print  relative__to_absolute("A2C",2000,1000)
+    print  relative__to_absolute("A2C",2000,1000)[1]

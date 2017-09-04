@@ -6,7 +6,6 @@ from pyke import knowledge_engine
 from pyke import krb_compiler
 from pyke import krb_traceback
 from pyke import goal
-
 import ibm_db
 import ibm_db_dbi
 import datetime
@@ -14,6 +13,7 @@ import time
 import recommend_area
 import BaseClass
 import random
+import area_coordinate_trans
 
 
 Area_information = {'A1C': BaseClass.AREA(), 'A2C': BaseClass.AREA(), 'A3C': BaseClass.AREA(), 'A4C': BaseClass.AREA(),
@@ -26,7 +26,7 @@ engine.activate('fc_area_recommend')
 
 
 # 判断库满的函数
-def fc_test(coil_kind, external_diameter, width, status1=1):
+def fc_test(coil_kind, external_diameter, width, status1=1,Flag='0'):
     fc_goal = goal.compile('coil_area.move_area($coil_kind,$area,$status)')
     try:
         with fc_goal.prove(engine, coil_kind=coil_kind, status=status1) as gen:
@@ -41,11 +41,14 @@ def fc_test(coil_kind, external_diameter, width, status1=1):
                 #  计算该钢卷放入之后的库容率
                 Cal_Capacity= Current_Ratio + (external_diameter * width)/ (Max_Length * Max_Width)
                 # print "若该钢卷放入%s区域，库容率为%f"%(vars['area'],Cal_Capacity)
-                if Cal_Capacity < 1:
+                if Cal_Capacity < 1 and Flag=='0':
                     print"%s should be played in %s" % (coil_kind, vars['area'])
                     return vars['area']
-                else:
-                    print "the %s area is full" % (vars['area'])
+                if Cal_Capacity>=1 or Flag=='1':
+                    if Flag=='1':
+                        print "the saddle of  %s area is full" % (vars['area'])
+                    else:
+                        print "the %s area is full" % (vars['area'])
                     status_n = status1 + 1
                     return fc_test(coil_kind,external_diameter,width,status1=status_n)
         return "null"
@@ -151,30 +154,41 @@ def read_stock_status(table_name, area_name):
 
 
 # 先判断推荐库位，再根据库位推荐相应的库区的函数
-def recommend_stock_position(table_name, coil_information, external_diameter, width):
-    area_name = fc_test(coil_information, float(external_diameter), float(width))
+def recommend_stock_position(table_name, coil_information, external_diameter, width, Flag = '0'):
+    area_name = fc_test(coil_information, float(external_diameter), float(width),Flag=Flag)
     Max_Length = select_data(table_name, area_name)[0]
     Max_Width = select_data(table_name, area_name)[1]
     Current_Capacity = select_data(table_name, area_name)[2]
     print "current storage_capacity is:", Current_Capacity
-    steel_information = BaseClass.RECT(llp=BaseClass.POINT(0., 0.), length=float(external_diameter),
-                                       width=float(width))
+    center_x = 1100
+    center_y = 1050
+    while float(width) / 2 > center_x:
+        center_x = center_x + 2200
+    while float(external_diameter) / 2 > center_y:
+        center_y = center_y + 600
+    print "start center_x:", center_x
+    print "start center_y:", center_y
+    # steel_information表示小区的rect,所以其坐标也是小区的
+    steel_information = BaseClass.RECT(llp=BaseClass.POINT(center_x - float(width) / 2,
+                                                           center_y - float(external_diameter) / 2),
+                                                           length=float(external_diameter),
+                                                            width=float(width))
     # 获取当前区域的steel_list，每个区域的steel_list不同
     # 在该处应该先读取数据库中鞍座的占有情况，将其append到new_steel_list中去
-
+    # 读取的是整个库区中的鞍座坐标占用
     exist_steel_lists = read_stock_status('UACS_STOCK_STATUS_TEST', area_name)
     new_steel_list = []
-    # new_steel_list = Area_information.get(area_name).steel_list
-    # # print 1
-    # print "11",new_steel_list
-    # print "before",len(new_steel_list)
     for item in exist_steel_lists:
-        center_x_exist = item[1]
-        center_y_exist = item[2]
+        CENTER_X = item[1]
+        CENTER_Y = item[2]
+        # 将X_CENTER(大区坐标)转换成小区坐标
+        center_x_exist = area_coordinate_trans.absolute_to_relative(area_name, CENTER_X, CENTER_Y)[0]
+        # 将Y_CENTER(大区坐标)转换成小区坐标
+        center_y_exist = area_coordinate_trans.absolute_to_relative(area_name, CENTER_X, CENTER_Y)[1]
         external_diameter_exist = item[4]
         width_exist = item[5]
-        steel_exist = BaseClass.RECT(llp=BaseClass.POINT(center_x_exist-external_diameter_exist/2.,
-                                                         center_y_exist-width_exist/2.),
+        steel_exist = BaseClass.RECT(llp=BaseClass.POINT(center_x_exist-width_exist/2.,
+                                                         center_y_exist-external_diameter/2.),
                                                          length = float(external_diameter_exist),
                                                           width = float(width_exist))
         new_steel_list.append(steel_exist)
@@ -187,20 +201,28 @@ def recommend_stock_position(table_name, coil_information, external_diameter, wi
     # recommend_area.show_all_rect(area_name,Max_Length,Max_Width)
     recommend_result = recommend_area.find_suit_pos(steel_information, new_steel_list,
                                                   Max_Length, Max_Width, area_name, Current_Capacity)
-    new_storage_capacity = recommend_result[0]
-    recommend_rect = recommend_result[1]
-    update_area_ratio('UACS_STOCK_INFO', area_name, new_storage_capacity)
-    print "after place coil the storage_capacity is:", new_storage_capacity
-    # print "the coil should put in %s area" % area_name
-    center_x = recommend_area.output_coordinate_x(recommend_rect)
-    center_y = recommend_area.output_coordinate_y(recommend_rect)
-    # 更新库区状态数据库
-    # print area_name,center_x,center_y,coil_information,external_diameter,width
-    update_stock_status="INSERT INTO UACS_STOCK_STATUS_TEST(STOCK_NAME,X_CENTER,Y_CENTER,COIL_KIND_NAME," \
-                        "COIL_OUT_LENGTH,COIL_WIDTH) VALUES('%s','%.2f',%.2f,'%s',%d,%d)"%\
-                        (area_name,center_x,center_y,coil_information,external_diameter,width)
-    ibm_db.exec_immediate(conn, update_stock_status)
-    return area_name
+    if recommend_result != False:
+        new_storage_capacity = recommend_result[0]
+        recommend_saddle_rect = recommend_result[1]
+        update_area_ratio('UACS_STOCK_INFO', area_name, new_storage_capacity)
+        print "after place coil the storage_capacity is:", new_storage_capacity
+        # print "the coil should put in %s area" % area_name
+        # 推荐的鞍座坐标
+        saddle_center_x = recommend_area.output_coordinate_x(recommend_saddle_rect)
+        saddle_center_y = recommend_area.output_coordinate_y(recommend_saddle_rect)
+        # 更新库区状态数据库
+        # print area_name,center_x,center_y,coil_information,external_diameter,width
+        update_stock_status="INSERT INTO UACS_STOCK_STATUS_TEST(STOCK_NAME,X_CENTER,Y_CENTER,COIL_KIND_NAME," \
+                            "COIL_OUT_LENGTH,COIL_WIDTH) VALUES('%s','%.2f',%.2f,'%s',%d,%d)"%\
+                            (area_name,saddle_center_x,saddle_center_y,coil_information,external_diameter,width)
+        ibm_db.exec_immediate(conn, update_stock_status)
+        return area_name
+    else:
+    # 加入Flag标志位，是为了表示当库容率小于1，但是却没有鞍座可以放置的情况，因此fc_test中也需要加入Flag作为判断
+        Flag = '1'
+        return recommend_stock_position(table_name, coil_information, external_diameter, width,Flag=Flag)
+
+
 
 
 if __name__ == "__main__":
@@ -214,5 +236,6 @@ if __name__ == "__main__":
         steel_kind_list = ["back_closed_coil","hot_closed_coil","finished_product","back_coil","hot_coil",
                            "2030","back_retreat_coil","hot_retreat_coil","back_return_coil"]
         steel_name=random.sample(steel_kind_list,1)[0]
-
+        print "钢卷种类：",steel_name
         recommend_stock_position('UACS_STOCK_INFO', steel_name, float(external_diameter),float(width))
+        # recommend_stock_position('UACS_STOCK_INFO', 'hot_coil', float(external_diameter), float(width))
